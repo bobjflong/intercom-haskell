@@ -13,8 +13,8 @@ import Control.Lens
 import Network.Wreq
 
 data Client = Client {
-    _appId :: ByteString,
-    _apiKey :: ByteString
+  _appId :: ByteString,
+  _apiKey :: ByteString
 } deriving (Show)
 
 $(makeLenses ''Client)
