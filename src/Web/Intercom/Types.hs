@@ -7,10 +7,12 @@ module Web.Intercom.Types (
     Client,
     ping,
     userList,
+    nextPage,
     name,
     email,
     customAttributes,
     users,
+    next,
     User,
     UserList,
     module Control.Lens
@@ -24,6 +26,7 @@ import Data.Aeson
 import Control.Applicative
 import Control.Monad
 import Data.Map
+import Data.Maybe
 
 data Client = Client {
   _appId :: ByteString,
@@ -65,13 +68,16 @@ instance FromJSON User where
   parseJSON _ = mzero
 
 data UserList = UserList {
-  _users :: [User]
+  _users :: [User],
+  _next :: Maybe Text
 } deriving (Eq, Show)
 
 $(makeLenses ''UserList)
 
 instance FromJSON UserList where
-  parseJSON (Object v) = UserList <$> (v .: "users")
+  parseJSON (Object v) = do
+    UserList <$> (v .: "users")
+    <*> ((v .: "pages") >>= (.: "next"))
   parseJSON _ = mzero
 
 -- | Grab a page of users from your user list
@@ -79,6 +85,15 @@ instance FromJSON UserList where
 -- > userList client
 -- Just (UserList {_users = [User {_name = "bob" ...
 userList :: Client -> IO (Maybe UserList)
-userList c = do
-  r <- getWith (opts c) "https://api.intercom.io/users"
+userList = userList' Nothing
+
+-- | Grabs the page of users from your user list (cycles around at the end)
+-- > nextPage client userList
+-- Just (UserList {_users = [User {_name = "jim" ...
+nextPage :: Client -> UserList -> IO (Maybe UserList)
+nextPage c u = userList' (show <$> u ^. next) c
+
+userList' :: (Maybe String) -> Client -> IO (Maybe UserList)
+userList' u c = do
+  r <- getWith (opts c) (fromMaybe "https://api.intercom.io/users" u)
   return $ decode (r ^. responseBody)

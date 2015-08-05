@@ -8,7 +8,7 @@ import Data.Aeson
 import qualified Data.Map as M
 
 userL :: UserList
-userL = fromJust $ decode "{\"users\":[{\"name\":\"bob\", \"custom_attributes\":{\"foo\":\"bar\"}}]}"
+userL = fromJust $ decode "{\"users\":[{\"name\":\"bob\", \"custom_attributes\":{\"foo\":\"bar\"}}], \"pages\":{\"next\":\"nextpage\"}}"
 
 main :: IO ()
 main = hspec $ do
@@ -17,4 +17,6 @@ main = hspec $ do
       (userL ^. users . ix 0 . name) `shouldBe` (Just "bob")
     it "grabs the custom_attributes" $ do
       (userL ^. users . ix 0 . customAttributes & M.lookup "foo") `shouldBe` (Just (String "bar"))
+    it "grabs the next page" $ do
+      (userL ^. next) `shouldBe` (Just "nextpage")
 
