@@ -6,6 +6,8 @@ module Web.Intercom.Types (
     apiKey,
     Client,
     ping,
+    defaultClient,
+    withIntercom,
     userList,
     nextPage,
     name,
@@ -21,8 +23,10 @@ module Web.Intercom.Types (
   ) where
 
 import           Control.Applicative
-import           Control.Lens        hiding ((.=))
+import           Control.Lens               hiding ((.=))
 import           Control.Monad
+import           Control.Monad.Trans
+import           Control.Monad.Trans.Reader
 import           Data.Aeson
 import           Data.ByteString
 import           Data.HashMap.Lazy
@@ -42,7 +46,7 @@ defaultClient = Client "" ""
 
 -- | Test the connection to Intercom
 -- > let client = defaultClient & appId .~ "foo" & apiKey .~ "bar"
--- > ping client
+-- > withIntercom client ping
 -- Status {statusCode = 200, statusMessage = "OK"}
 ping :: Client -> IO Status
 ping c = do
@@ -99,29 +103,37 @@ instance FromJSON UserList where
     <*> ((v .: "pages") >>= (.: "next"))
   parseJSON _ = mzero
 
+-- | Perform a function with a given client
+withIntercom :: Client -> ReaderT Client m a -> m a
+withIntercom = flip runReaderT
+
 -- | Grab a page of users from your user list
 -- > let client = defaultClient & appId .~ "foo" & apiKey .~ "bar"
--- > userList client
+-- > withIntercom client $ userList
 -- Just (UserList {_users = [User {_name = "bob" ...
-userList :: Client -> IO (Maybe UserList)
+userList :: ReaderT Client IO (Maybe UserList)
 userList = userList' Nothing
 
 -- | Grabs the page of users from your user list (cycles around at the end)
--- > nextPage client userList
+-- > withIntercom client $ nextPage userList
 -- Just (UserList {_users = [User {_name = "jim" ...
-nextPage :: UserList -> Client -> IO (Maybe UserList)
+nextPage :: UserList -> ReaderT Client IO (Maybe UserList)
 nextPage u = userList' (show <$> u ^. next)
 
-userList' :: Maybe String -> Client -> IO (Maybe UserList)
-userList' u c = do
-  r <- getWith (opts c) (fromMaybe "https://api.intercom.io/users" u)
-  return $ decode (r ^. responseBody)
+userList' :: Maybe String -> ReaderT Client IO (Maybe UserList)
+userList' u = do
+  c <- ask
+  lift $ do
+    r <- getWith (opts c) (fromMaybe "https://api.intercom.io/users" u)
+    return $ decode (r ^. responseBody)
 
 -- | Create or update a user in Intercom
 -- > let myUser = blankUser & email .~ (Just "bob@foo.com")
--- > createOrUpdateUser myUser client
+-- > withIntercom client $ createOrUpdateUser myUser
 -- Just (User {_name = Nothing, _email = Just "bob@foo.com", _userId = Nothing, _customAttributes = fromList []})
-createOrUpdateUser :: User -> Client -> IO (Maybe User)
-createOrUpdateUser u c = do
-  r <- postWith (postOpts c) "https://api.intercom.io/users" (encode u)
-  return $ decode (r ^. responseBody)
+createOrUpdateUser :: User -> ReaderT Client IO (Maybe User)
+createOrUpdateUser u = do
+  c <- ask
+  lift $ do
+    r <- postWith (postOpts c) "https://api.intercom.io/users" (encode u)
+    return $ decode (r ^. responseBody)
