@@ -2,7 +2,7 @@
 
 import           Control.Lens
 import           Data.Aeson
-import qualified Data.Map           as M
+import qualified Data.HashMap.Lazy  as M
 import           Data.Maybe
 import           Test.Hspec
 import           Web.Intercom.Types
@@ -19,3 +19,7 @@ main = hspec $ do
       (userL ^. users . ix 0 . customAttributes & M.lookup "foo") `shouldBe` Just (String "bar")
     it "grabs the next page" $ do
       (userL ^. next) `shouldBe` Just "nextpage"
+  describe "user serializing" $ do
+    it "encodes identity attributes when not Nothing" $ do
+      let myUser = blankUser & email .~ Just "bob@foo.com"
+      encode myUser `shouldBe` "{\"email\":\"bob@foo.com\",\"custom_attributes\":{}}"
