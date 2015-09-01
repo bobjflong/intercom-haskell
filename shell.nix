@@ -5,15 +5,15 @@ let
   inherit (nixpkgs) pkgs;
 
   f = { mkDerivation, aeson, base, bytestring, containers, hspec
-      , lens, stdenv, text, unordered-containers, wreq
+      , lens, mtl, stdenv, text, transformers, unordered-containers, wreq
       }:
       mkDerivation {
         pname = "intercom-haskell";
         version = "0.1.0.0";
         src = ./.;
         libraryHaskellDepends = [
-          aeson base bytestring containers lens text unordered-containers
-          wreq
+          aeson base bytestring containers lens mtl text transformers
+          unordered-containers wreq
         ];
         testHaskellDepends = [
           aeson base bytestring hspec lens text unordered-containers
